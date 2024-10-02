@@ -1,8 +1,11 @@
+import os
 import json
 from pathlib import Path
 from typing import Optional
 from textwrap import dedent
 from typing import List
+
+from dotenv import load_dotenv
 
 from phi.assistant import Assistant
 from phi.tools import Toolkit
@@ -12,9 +15,9 @@ from phi.tools.calculator import Calculator
 from phi.tools.duckduckgo import DuckDuckGo
 from phi.tools.yfinance import YFinanceTools
 from phi.tools.file import FileTools
-from phi.llm.openai import OpenAIChat
+from phi.llm.azure import AzureOpenAIChat
 from phi.knowledge import AssistantKnowledge
-from phi.embedder.openai import OpenAIEmbedder
+from phi.embedder.azure_openai import AzureOpenAIEmbedder
 from phi.assistant.duckdb import DuckDbAssistant
 from phi.assistant.python import PythonAssistant
 from phi.storage.assistant.postgres import PgAssistantStorage
@@ -23,6 +26,11 @@ from phi.vectordb.pgvector import PgVector2
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 cwd = Path(__file__).parent.resolve()
+load_dotenv()
+openai_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+openai_end_point = os.getenv("AZURE_OPENAI_ENDPOINT")
+openai_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+
 scratch_dir = cwd.joinpath("scratch")
 if not scratch_dir.exists():
     scratch_dir.mkdir(exist_ok=True, parents=True)
@@ -110,7 +118,12 @@ def get_llm_os(
         _research_assistant = Assistant(
             name="Research Assistant",
             role="Write a research report on a given topic",
-            llm=OpenAIChat(model=llm_id),
+            llm=AzureOpenAIChat(
+            deployment=openai_deployment,
+            api_key=openai_api_key,
+            api_base=openai_end_point,
+            model=openai_deployment
+        ),
             description="You are a Senior New York Times researcher tasked with writing a cover story research report.",
             instructions=[
                 "For a given topic, use the `search_exa` to get the top 10 search results.",
@@ -160,7 +173,12 @@ def get_llm_os(
         _investment_assistant = Assistant(
             name="Investment Assistant",
             role="Write a investment report on a given company (stock) symbol",
-            llm=OpenAIChat(model=llm_id),
+            llm=AzureOpenAIChat(
+            deployment=openai_deployment,
+            api_key=openai_api_key,
+            api_base=openai_end_point,
+            model=openai_deployment,
+        ),
             description="You are a Senior Investment Analyst for Goldman Sachs tasked with writing an investment report for a very important client.",
             instructions=[
                 "For a given stock symbol, get the stock price, company information, analyst recommendations, and company news",
@@ -229,7 +247,12 @@ def get_llm_os(
         name="llm_os",
         run_id=run_id,
         user_id=user_id,
-        llm=OpenAIChat(model=llm_id),
+        llm=AzureOpenAIChat(
+            deployment=openai_deployment,
+            api_key=openai_api_key,
+            api_base=openai_end_point,
+            model=openai_deployment
+        ),
         description=dedent(
             """\
         You are the most advanced AI system in the world called `LLM-OS`.
@@ -257,11 +280,17 @@ def get_llm_os(
         storage=PgAssistantStorage(table_name="llm_os_runs", db_url=db_url),
         # Add a knowledge base to the LLM OS
         knowledge_base=AssistantKnowledge(
-            vector_db=PgVector2(
-                db_url=db_url,
-                collection="llm_os_documents",
-                embedder=OpenAIEmbedder(model="text-embedding-3-small", dimensions=1536),
+        vector_db=PgVector2(
+            db_url=db_url,
+            collection="llm_os_documents",
+            embedder=AzureOpenAIEmbedder(
+                model="text-embedding-ada-002",
+                deployment="text-embedding-ada-002",
+                api_key=openai_api_key,
+                api_base=openai_end_point,
+                dimensions=1536
             ),
+        ),
             # 3 references are added to the prompt when searching the knowledge base
             num_documents=3,
         ),
